@@ -24,16 +24,33 @@ async function generateVisitorUniqueId() {
 }
 
 // Function to send visit data to the backend
-function sendVisitData(pageUrl, visitorId) {
-    const timestamp = Date.now(); // Get current timestamp in milliseconds
-    const url = 'http://127.0.0.1:8000/track-visit';
-    const csrfToken = document.querySelector('meta[name="csrf-token"]').getAttribute('content');
+async function sendVisitData(pageUrl, visitorId) {
+    try {
+        const timestamp = Date.now(); // Get current timestamp in milliseconds
+        const url = 'http://127.0.0.1:8000/track-visit';
+        const csrfToken = document.querySelector('meta[name="csrf-token"]').getAttribute('content');
 
-    const xhr = new XMLHttpRequest();
-    xhr.open('POST', url, true);
-    xhr.setRequestHeader('Content-Type', 'application/json');
-    xhr.setRequestHeader('X-CSRF-TOKEN', csrfToken); // for Laravel applications
-    xhr.send(JSON.stringify({ pageUrl, timestamp, visitorId }));
+        const response = await fetch(url, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'X-CSRF-TOKEN': csrfToken
+            },
+            body: JSON.stringify({ pageUrl, timestamp, visitorId })
+        });
+
+        const responseData = await response.json();
+
+        // If the visit is successfully tracked, remove the page URL from local storage
+        if (response.ok && responseData.message === 'Visit tracked successfully') {
+            return true;
+        }
+
+        return false;
+    } catch (error) {
+        console.error('Error sending visit data:', error);
+        throw error;
+    }
 }
 
 // Function to check if the visitor is unique
@@ -69,13 +86,19 @@ window.addEventListener('load', async function () {
 
         if (isUniqueVisitor()) {
             const visitorId = await generateVisitorUniqueId(); // Generate if not exists
-            setVisitorId(visitorId);
-            sendVisitData(pageUrl, visitorId);
-            setVisitedPage(pageUrl);
+            const addToLocalStorage = await sendVisitData(pageUrl, visitorId);
+            if(addToLocalStorage) {
+                setVisitorId(visitorId);
+                setVisitedPage(pageUrl);
+            }
+
         } else if (!hasVisitedPage(pageUrl)) {
             const visitorId = getItem('visitor_id');
-            sendVisitData(pageUrl, visitorId);
-            setVisitedPage(pageUrl);
+            const addToLocalStorage = await sendVisitData(pageUrl, visitorId);
+
+            if(addToLocalStorage) {
+                setVisitedPage(pageUrl);
+            }
         }
     } catch (error) {
         console.error('Error processing visit data:', error);
