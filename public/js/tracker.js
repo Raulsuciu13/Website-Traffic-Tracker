@@ -28,13 +28,11 @@ async function sendVisitData(pageUrl, visitorId) {
     try {
         const timestamp = Date.now(); // Get current timestamp in milliseconds
         const url = 'http://127.0.0.1:8000/track-visit';
-        const csrfToken = document.querySelector('meta[name="csrf-token"]').getAttribute('content');
 
         const response = await fetch(url, {
             method: 'POST',
             headers: {
                 'Content-Type': 'application/json',
-                'X-CSRF-TOKEN': csrfToken
             },
             body: JSON.stringify({ pageUrl, timestamp, visitorId })
         });
@@ -78,11 +76,30 @@ function setVisitedPage(pageUrl) {
     }
 }
 
+function cleanUrl(url) {
+    // Remove trailing "#" if present
+    if (url.endsWith('#')) {
+        url = url.slice(0, -1);
+    }
+
+    // Remove trailing "?" if present
+    if (url.endsWith('?')) {
+        url = url.slice(0, -1);
+    }
+
+    // Remove trailing "?#" if present
+    if (url.endsWith('?#')) {
+        url = url.slice(0, -2);
+    }
+
+    return url;
+}
+
 // Call sendVisitData function for unique page visits on page load
 window.addEventListener('load', async function () {
     try {
-        // const pageUrl = window.location.pathname;
-        const pageUrl = window.location.href;
+        // const pageUrl = window.location.pathname + window.location.search;
+        const pageUrl = cleanUrl(window.location.href);
 
         if (isUniqueVisitor()) {
             const visitorId = await generateVisitorUniqueId(); // Generate if not exists
